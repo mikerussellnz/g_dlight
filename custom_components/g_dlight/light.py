@@ -1,6 +1,5 @@
 """Google Dlight light platform."""
 
-import logging
 from typing import Any, override
 
 from homeassistant.components.light import (
@@ -13,9 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import CONF_DEVICE_CODE
-
-_LOGGER = logging.getLogger(__name__)
+from .api import DlightClient
 
 
 async def async_setup_entry(
@@ -24,7 +21,7 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up a Google Dlight light."""
-    async_add_entities([GoogleDlightLight(entry)])
+    async_add_entities([GoogleDlightLight(entry.runtime_data)])
 
 
 class GoogleDlightLight(LightEntity):
@@ -33,17 +30,25 @@ class GoogleDlightLight(LightEntity):
     _attr_has_entity_name = True
     _attr_name = None
     _attr_supported_color_modes = {ColorMode.BRIGHTNESS, ColorMode.COLOR_TEMP}
-    _attr_min_color_temp_kelvin = 2700
-    _attr_max_color_temp_kelvin = 6500
+    _attr_min_color_temp_kelvin = 2600
+    _attr_max_color_temp_kelvin = 6000
 
-    def __init__(self, entry: ConfigEntry) -> None:
+    def __init__(self, client: DlightClient) -> None:
         """Initialize the light."""
-        self._attr_unique_id = entry.unique_id
-        self._attr_device_code = entry.data[CONF_DEVICE_CODE]
+        self._client = client
+        self._attr_unique_id = client.device_id
+        self._attr_device_code = client.device_id
         self._attr_is_on = False
         self._attr_brightness = 255
         self._attr_color_temp_kelvin = 4000
         self._attr_color_mode = ColorMode.BRIGHTNESS
+
+    async def async_update(self) -> None:
+        """Fetch the current state from the device."""
+        state = await self._client.async_get_state()
+        self._attr_is_on = state["on"]
+        self._attr_brightness = round(state["brightness"] * 255 / 100)
+        self._attr_color_temp_kelvin = state["color"]["temperature"]
 
     @property
     @override
@@ -73,25 +78,19 @@ class GoogleDlightLight(LightEntity):
         """Turn the light on and apply requested settings."""
         self._attr_is_on = True
         if (brightness := kwargs.get(ATTR_BRIGHTNESS)) is not None:
-            self._attr_brightness = brightness
+            native_brightness = round(brightness * 100 / 255)
+            self._attr_brightness = round(native_brightness * 255 / 100)
             self._attr_color_mode = ColorMode.BRIGHTNESS
+            await self._client.async_set_brightness(native_brightness)
         if (color_temp := kwargs.get(ATTR_COLOR_TEMP_KELVIN)) is not None:
             self._attr_color_temp_kelvin = color_temp
             self._attr_color_mode = ColorMode.COLOR_TEMP
-        await self._async_send_command("turn_on", kwargs)
+            await self._client.async_set_color_temperature(color_temp)
+        await self._client.async_turn_on()
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the light off."""
         self._attr_is_on = False
-        await self._async_send_command("turn_off", kwargs)
+        await self._client.async_turn_off()
         self.async_write_ha_state()
-
-    async def _async_send_command(self, command: str, data: dict[str, Any]) -> None:
-        """Placeholder for the Google Dlight network request."""
-        _LOGGER.debug(
-            "Google Dlight command placeholder: code=%s command=%s data=%s",
-            self._attr_device_code,
-            command,
-            data,
-        )

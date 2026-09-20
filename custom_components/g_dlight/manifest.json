@@ -1,6 +1,7 @@
 {
   "domain": "g_dlight",
   "name": "Google Dlight",
+  "after_dependencies": ["zeroconf"],
   "codeowners": [
     "@mikerussellnz"
   ],

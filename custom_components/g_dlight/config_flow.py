@@ -7,7 +7,7 @@ import probatio
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
-from .const import CONF_DEVICE_CODE, DOMAIN
+from .const import CONF_DEVICE_CODE, CONF_SERVICE_NAME, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,6 +24,7 @@ class ConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     _discovered_host: str | None = None
+    _discovered_service_name: str | None = None
 
     async def async_step_user(self, user_input: dict | None = None) -> ConfigFlowResult:
         """Handle the initial step."""
@@ -31,7 +32,10 @@ class ConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             await self.async_set_unique_id(user_input[CONF_DEVICE_CODE])
             self._abort_if_unique_id_configured()
-            return self.async_create_entry(title="Google Dlight", data=user_input)
+            data = dict(user_input)
+            if self._discovered_service_name:
+                data[CONF_SERVICE_NAME] = self._discovered_service_name
+            return self.async_create_entry(title="Google Dlight", data=data)
 
         return self.async_show_form(
             step_id="user",
@@ -51,4 +55,5 @@ class ConfigFlow(ConfigFlow, domain=DOMAIN):
             discovery_info.properties,
         )
         self._discovered_host = discovery_info.host
+        self._discovered_service_name = discovery_info.name
         return await self.async_step_user()
