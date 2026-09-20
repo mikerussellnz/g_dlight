@@ -61,7 +61,7 @@ class DlightClient:
             "commandType": command_type,
         }
         if command is not None:
-            payload["commands"] = [json.dumps(command, separators=(",", ":"))]
+            payload["commands"] = [command]
         else:
             payload["commands"] = []
 
@@ -71,9 +71,25 @@ class DlightClient:
         try:
             writer.write(json.dumps(payload, separators=(",", ":")).encode())
             await writer.drain()
-            response_length = struct.unpack(">I", await reader.readexactly(4))[0]
+            response_header = await reader.readexactly(4)
+            response_length = struct.unpack(">I", response_header)[0]
             if response_length > 5000:
-                raise DlightError("Invalid response length")
+                little_endian_length = struct.unpack("<I", response_header)[0]
+                if little_endian_length > 5000:
+                    _LOGGER.error(
+                        "Invalid Google Dlight response header %s (big-endian=%s, "
+                        "little-endian=%s)",
+                        response_header.hex(),
+                        response_length,
+                        little_endian_length,
+                    )
+                    raise DlightError("Invalid response length")
+                _LOGGER.debug(
+                    "Using little-endian Google Dlight response length %s from %s",
+                    little_endian_length,
+                    response_header.hex(),
+                )
+                response_length = little_endian_length
             response = json.loads(await reader.readexactly(response_length))
         except (OSError, TimeoutError, asyncio.IncompleteReadError, ValueError) as err:
             raise DlightError(f"Failed to communicate with {self.host}") from err
