@@ -30,7 +30,7 @@ class GoogleDlightLight(LightEntity):
     """Representation of a Google Dlight light."""
 
     _attr_has_entity_name = True
-    _attr_name = None
+    _attr_name = "Light"
     _attr_supported_color_modes = {ColorMode.BRIGHTNESS, ColorMode.COLOR_TEMP}
     _attr_min_color_temp_kelvin = 2600
     _attr_max_color_temp_kelvin = 6000
