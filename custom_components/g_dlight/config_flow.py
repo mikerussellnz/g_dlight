@@ -106,6 +106,13 @@ class ConfigFlow(ConfigFlow, domain=DOMAIN):
         self, discovery_info: ZeroconfServiceInfo
     ) -> ConfigFlowResult:
         """Handle mDNS discovery."""
+        _LOGGER.debug(
+            "Discovered Google Dlight service: name=%s, host=%s, port=%s, properties=%s",
+            discovery_info.name,
+            discovery_info.host,
+            discovery_info.port,
+            discovery_info.properties,
+        )
         await self.async_set_unique_id(discovery_info.name)
         self._abort_if_unique_id_configured()
         self._discovered_host = discovery_info.host
