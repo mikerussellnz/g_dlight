@@ -76,12 +76,12 @@ class DlightClient:
             response_header = await reader.readexactly(4)
             if response_header.startswith(b"{"):
                 _LOGGER.debug("Received an unframed Google Dlight JSON response")
-                response_payload = response_header + await asyncio.wait_for(
-                    reader.read(), timeout=10
+                response_payload = await self._async_read_json_response(
+                    reader, response_header
                 )
                 _LOGGER.debug(
                     "Received unframed Google Dlight response: %s",
-                    response_payload.decode(errors="replace"),
+                    response_payload,
                 )
                 response = json.loads(response_payload)
             else:
@@ -133,6 +133,22 @@ class DlightClient:
         if response.get("status") != SUCCESS:
             raise DlightError(f"Device rejected the command: {response}")
         return response
+
+    async def _async_read_json_response(
+        self, reader: asyncio.StreamReader, initial_data: bytes
+    ) -> str:
+        """Read one unframed JSON response without waiting for connection close."""
+        response = initial_data
+        decoder = json.JSONDecoder()
+        async with asyncio.timeout(10):
+            while True:
+                try:
+                    decoded_response = response.decode()
+                    decoder.raw_decode(decoded_response)
+                except UnicodeDecodeError, json.JSONDecodeError:
+                    response += await reader.read(1024)
+                    continue
+                return decoded_response
 
 
 def service_name(device_id: str) -> str:
