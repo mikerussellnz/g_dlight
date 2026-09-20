@@ -47,12 +47,6 @@ class ConfigFlow(ConfigFlow, domain=DOMAIN):
         self, discovery_info: ZeroconfServiceInfo
     ) -> ConfigFlowResult:
         """Handle mDNS discovery."""
-        if any(
-            entry.data.get(CONF_SERVICE_NAME) == discovery_info.name
-            for entry in self.hass.config_entries.async_entries(DOMAIN)
-        ):
-            return self.async_abort(reason="already_configured")
-
         _LOGGER.debug(
             "Discovered Google Dlight service: name=%s, host=%s, port=%s, properties=%s",
             discovery_info.name,
@@ -60,6 +54,17 @@ class ConfigFlow(ConfigFlow, domain=DOMAIN):
             discovery_info.port,
             discovery_info.properties,
         )
-        self._discovered_host = discovery_info.host
-        self._discovered_service_name = discovery_info.name
-        return await self.async_step_user()
+        service_name_parts = discovery_info.name.split("_")
+        if len(service_name_parts) < 2 or not service_name_parts[1]:
+            return self.async_abort(reason="invalid_service_info")
+
+        device_id = service_name_parts[1].split(".", 1)[0]
+        await self.async_set_unique_id(device_id)
+        self._abort_if_unique_id_configured()
+        return self.async_create_entry(
+            title="Google Dlight",
+            data={
+                CONF_DEVICE_CODE: device_id,
+                CONF_SERVICE_NAME: discovery_info.name,
+            },
+        )
