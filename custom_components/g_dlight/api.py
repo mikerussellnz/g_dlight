@@ -54,17 +54,12 @@ class DlightClient:
     async def _async_send_command(
         self, command_type: str, command: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """Send a command and parse the device response."""
-        payload = {
-            "deviceId": self.device_id,
-            "commandId": COMMAND_ID,
-            "commandType": command_type,
-        }
-        if command is not None:
-            payload["commands"] = [command]
-        else:
-            payload["commands"] = []
-        request = json.dumps(payload, separators=(",", ":"))
+        """Send a command and parse the length-prefixed JSON response."""
+        command_json = json.dumps(command) if command is not None else ""
+        request = (
+            f'{{"deviceId":"{self.device_id}","commandId":"{COMMAND_ID}",'
+            f'"commandType":"{command_type}","commands":[{command_json}]}}'
+        )
 
         reader, writer = await asyncio.wait_for(
             asyncio.open_connection(self.host, PORT), timeout=10
@@ -74,25 +69,7 @@ class DlightClient:
             writer.write(request.encode())
             await writer.drain()
             response_header = await reader.readexactly(4)
-            if response_header.startswith(b"{"):
-                _LOGGER.debug("Received an unframed Google Dlight JSON response")
-                response_payload = await self._async_read_json_response(
-                    reader, response_header
-                )
-                _LOGGER.debug(
-                    "Received unframed Google Dlight response: %s",
-                    response_payload,
-                )
-                response = json.loads(response_payload)
-                if response.get("status") is None:
-                    _LOGGER.debug(
-                        "Ignoring Google Dlight JSON frame without status: %s", response
-                    )
-                    response = await self._async_read_framed_response(reader)
-            else:
-                response = await self._async_read_framed_response(
-                    reader, response_header
-                )
+            response = await self._async_read_framed_response(reader, response_header)
         except (OSError, TimeoutError, asyncio.IncompleteReadError, ValueError) as err:
             raise DlightError(f"Failed to communicate with {self.host}") from err
         finally:
@@ -110,38 +87,11 @@ class DlightClient:
         response_header = response_header or await reader.readexactly(4)
         response_length = struct.unpack(">I", response_header)[0]
         if response_length > 5000:
-            little_endian_length = struct.unpack("<I", response_header)[0]
-            ascii_length = int(response_header) if response_header.isdigit() else None
-            if little_endian_length > 5000 and (
-                ascii_length is None or ascii_length > 5000
-            ):
-                raise DlightError(
-                    "Invalid response length: "
-                    f"header={response_header.hex()} "
-                    f"big_endian={response_length} "
-                    f"little_endian={little_endian_length} "
-                    f"ascii={ascii_length}"
-                )
-            response_length = (
-                ascii_length if ascii_length is not None else little_endian_length
+            raise DlightError(
+                "Invalid response length: "
+                f"header={response_header.hex()} length={response_length}"
             )
         return json.loads(await reader.readexactly(response_length))
-
-    async def _async_read_json_response(
-        self, reader: asyncio.StreamReader, initial_data: bytes
-    ) -> str:
-        """Read one unframed JSON response without waiting for connection close."""
-        response = initial_data
-        decoder = json.JSONDecoder()
-        async with asyncio.timeout(10):
-            while True:
-                try:
-                    decoded_response = response.decode()
-                    decoder.raw_decode(decoded_response)
-                except UnicodeDecodeError, json.JSONDecodeError:
-                    response += await reader.read(1024)
-                    continue
-                return decoded_response
 
 
 def service_name(device_id: str) -> str:
