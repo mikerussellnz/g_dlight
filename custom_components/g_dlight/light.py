@@ -31,7 +31,7 @@ class GoogleDlightLight(LightEntity):
 
     _attr_has_entity_name = True
     _attr_name = "Light"
-    _attr_supported_color_modes = {ColorMode.BRIGHTNESS, ColorMode.COLOR_TEMP}
+    _attr_supported_color_modes = {ColorMode.COLOR_TEMP}
     _attr_min_color_temp_kelvin = 2600
     _attr_max_color_temp_kelvin = 6000
 
@@ -48,7 +48,7 @@ class GoogleDlightLight(LightEntity):
         self._attr_is_on = False
         self._attr_brightness = 255
         self._attr_color_temp_kelvin = 4000
-        self._attr_color_mode = ColorMode.BRIGHTNESS
+        self._attr_color_mode = ColorMode.COLOR_TEMP
 
     async def async_update(self) -> None:
         """Fetch the current state from the device."""
@@ -87,7 +87,6 @@ class GoogleDlightLight(LightEntity):
         if (brightness := kwargs.get(ATTR_BRIGHTNESS)) is not None:
             native_brightness = round(brightness * 100 / 255)
             self._attr_brightness = round(native_brightness * 255 / 100)
-            self._attr_color_mode = ColorMode.BRIGHTNESS
             await self._client.async_set_brightness(native_brightness)
         if (color_temp := kwargs.get(ATTR_COLOR_TEMP_KELVIN)) is not None:
             self._attr_color_temp_kelvin = color_temp
