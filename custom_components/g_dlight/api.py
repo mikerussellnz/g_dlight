@@ -64,18 +64,24 @@ class DlightClient:
             payload["commands"] = [command]
         else:
             payload["commands"] = []
+        request = json.dumps(payload, separators=(",", ":"))
 
         reader, writer = await asyncio.wait_for(
             asyncio.open_connection(self.host, PORT), timeout=10
         )
         try:
-            writer.write(json.dumps(payload, separators=(",", ":")).encode())
+            _LOGGER.debug("Sending Google Dlight request: %s", request)
+            writer.write(request.encode())
             await writer.drain()
             response_header = await reader.readexactly(4)
             if response_header.startswith(b"{"):
                 _LOGGER.debug("Received an unframed Google Dlight JSON response")
                 response_payload = response_header + await asyncio.wait_for(
                     reader.read(), timeout=10
+                )
+                _LOGGER.debug(
+                    "Received unframed Google Dlight response: %s",
+                    response_payload.decode(errors="replace"),
                 )
                 response = json.loads(response_payload)
             else:
@@ -125,7 +131,7 @@ class DlightClient:
             await writer.wait_closed()
 
         if response.get("status") != SUCCESS:
-            raise DlightError("Device rejected the command")
+            raise DlightError(f"Device rejected the command: {response}")
         return response
 
 
