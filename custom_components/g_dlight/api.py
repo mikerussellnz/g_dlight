@@ -54,7 +54,7 @@ class DlightClient:
     async def _async_send_command(
         self, command_type: str, command: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """Send a command and parse the length-prefixed JSON response."""
+        """Send a command and parse the device response."""
         payload = {
             "deviceId": self.device_id,
             "commandId": COMMAND_ID,
@@ -72,45 +72,52 @@ class DlightClient:
             writer.write(json.dumps(payload, separators=(",", ":")).encode())
             await writer.drain()
             response_header = await reader.readexactly(4)
-            response_length = struct.unpack(">I", response_header)[0]
-            if response_length > 5000:
-                little_endian_length = struct.unpack("<I", response_header)[0]
-                ascii_length = (
-                    int(response_header) if response_header.isdigit() else None
+            if response_header.startswith(b"{"):
+                _LOGGER.debug("Received an unframed Google Dlight JSON response")
+                response_payload = response_header + await asyncio.wait_for(
+                    reader.read(), timeout=10
                 )
-                if little_endian_length > 5000 and (
-                    ascii_length is None or ascii_length > 5000
-                ):
-                    _LOGGER.error(
-                        "Invalid Google Dlight response header %s (big-endian=%s, "
-                        "little-endian=%s, ascii=%s)",
-                        response_header.hex(),
-                        response_length,
-                        little_endian_length,
-                        ascii_length,
+                response = json.loads(response_payload)
+            else:
+                response_length = struct.unpack(">I", response_header)[0]
+                if response_length > 5000:
+                    little_endian_length = struct.unpack("<I", response_header)[0]
+                    ascii_length = (
+                        int(response_header) if response_header.isdigit() else None
                     )
-                    raise DlightError(
-                        "Invalid response length: "
-                        f"header={response_header.hex()} "
-                        f"big_endian={response_length} "
-                        f"little_endian={little_endian_length} "
-                        f"ascii={ascii_length}"
-                    )
-                if ascii_length is not None and ascii_length <= 5000:
-                    response_length = ascii_length
-                    _LOGGER.debug(
-                        "Using ASCII Google Dlight response length %s from %s",
-                        ascii_length,
-                        response_header,
-                    )
-                else:
-                    response_length = little_endian_length
-                    _LOGGER.debug(
-                        "Using little-endian Google Dlight response length %s from %s",
-                        little_endian_length,
-                        response_header.hex(),
-                    )
-            response = json.loads(await reader.readexactly(response_length))
+                    if little_endian_length > 5000 and (
+                        ascii_length is None or ascii_length > 5000
+                    ):
+                        _LOGGER.error(
+                            "Invalid Google Dlight response header %s (big-endian=%s, "
+                            "little-endian=%s, ascii=%s)",
+                            response_header.hex(),
+                            response_length,
+                            little_endian_length,
+                            ascii_length,
+                        )
+                        raise DlightError(
+                            "Invalid response length: "
+                            f"header={response_header.hex()} "
+                            f"big_endian={response_length} "
+                            f"little_endian={little_endian_length} "
+                            f"ascii={ascii_length}"
+                        )
+                    if ascii_length is not None and ascii_length <= 5000:
+                        response_length = ascii_length
+                        _LOGGER.debug(
+                            "Using ASCII Google Dlight response length %s from %s",
+                            ascii_length,
+                            response_header,
+                        )
+                    else:
+                        response_length = little_endian_length
+                        _LOGGER.debug(
+                            "Using little-endian Google Dlight response length %s from %s",
+                            little_endian_length,
+                            response_header.hex(),
+                        )
+                response = json.loads(await reader.readexactly(response_length))
         except (OSError, TimeoutError, asyncio.IncompleteReadError, ValueError) as err:
             raise DlightError(f"Failed to communicate with {self.host}") from err
         finally:
