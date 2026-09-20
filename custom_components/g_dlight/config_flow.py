@@ -47,6 +47,12 @@ class ConfigFlow(ConfigFlow, domain=DOMAIN):
         self, discovery_info: ZeroconfServiceInfo
     ) -> ConfigFlowResult:
         """Handle mDNS discovery."""
+        if any(
+            entry.data.get(CONF_SERVICE_NAME) == discovery_info.name
+            for entry in self.hass.config_entries.async_entries(DOMAIN)
+        ):
+            return self.async_abort(reason="already_configured")
+
         _LOGGER.debug(
             "Discovered Google Dlight service: name=%s, host=%s, port=%s, properties=%s",
             discovery_info.name,

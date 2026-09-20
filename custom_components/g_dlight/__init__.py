@@ -2,6 +2,8 @@
 
 import logging
 
+from zeroconf import IPVersion
+
 from homeassistant.components import zeroconf
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -22,11 +24,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     service_info = await aiozc.async_get_service_info(
         "_ged7._tcp.local.", discovered_service_name
     )
-    if service_info is None or not service_info.ip_addresses:
+    if service_info is None:
         _LOGGER.error("Unable to discover Google Dlight %s", device_id)
         return False
 
-    entry.runtime_data = DlightClient(device_id, str(service_info.ip_addresses[0]))
+    ip_addresses = service_info.ip_addresses_by_version(IPVersion.All)
+    if not ip_addresses:
+        _LOGGER.error("Unable to resolve Google Dlight %s", device_id)
+        return False
+
+    entry.runtime_data = DlightClient(device_id, str(ip_addresses[0]))
 
     await hass.config_entries.async_forward_entry_setups(entry, _PLATFORMS)
 
