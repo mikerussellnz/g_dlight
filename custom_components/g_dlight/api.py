@@ -69,6 +69,11 @@ class DlightClient:
             writer.write(request.encode())
             await writer.drain()
             response_header = await reader.readexactly(4)
+            _LOGGER.debug(
+                "Received Google Dlight response prefix: bytes=%s text=%r",
+                response_header.hex(" "),
+                response_header.decode(errors="replace"),
+            )
             response = await self._async_read_framed_response(reader, response_header)
         except (OSError, TimeoutError, asyncio.IncompleteReadError, ValueError) as err:
             raise DlightError(f"Failed to communicate with {self.host}") from err
@@ -87,6 +92,17 @@ class DlightClient:
         response_header = response_header or await reader.readexactly(4)
         response_length = struct.unpack(">I", response_header)[0]
         if response_length > 5000:
+            try:
+                raw_response = response_header + await asyncio.wait_for(
+                    reader.read(4096), timeout=1
+                )
+            except TimeoutError:
+                raw_response = response_header
+            _LOGGER.error(
+                "Raw Google Dlight response: bytes=%s text=%r",
+                raw_response.hex(" "),
+                raw_response.decode(errors="replace"),
+            )
             raise DlightError(
                 "Invalid response length: "
                 f"header={response_header.hex()} length={response_length}"
