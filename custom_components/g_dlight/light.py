@@ -1,5 +1,6 @@
 """Google Dlight light platform."""
 
+from datetime import timedelta
 from typing import Any, override
 
 from homeassistant.components.light import (
@@ -15,6 +16,8 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .api import DlightClient
 from .const import DOMAIN
+
+SCAN_INTERVAL = timedelta(seconds=5)
 
 
 async def async_setup_entry(
@@ -56,6 +59,7 @@ class GoogleDlightLight(LightEntity):
         self._attr_is_on = state["on"]
         self._attr_brightness = round(state["brightness"] * 255 / 100)
         self._attr_color_temp_kelvin = state["color"]["temperature"]
+        self._attr_color_mode = ColorMode.COLOR_TEMP
 
     @property
     @override
@@ -85,7 +89,7 @@ class GoogleDlightLight(LightEntity):
         """Turn the light on and apply requested settings."""
         self._attr_is_on = True
         if (brightness := kwargs.get(ATTR_BRIGHTNESS)) is not None:
-            native_brightness = round(brightness * 100 / 255)
+            native_brightness = max(1, round(brightness * 100 / 255))
             self._attr_brightness = round(native_brightness * 255 / 100)
             await self._client.async_set_brightness(native_brightness)
         if (color_temp := kwargs.get(ATTR_COLOR_TEMP_KELVIN)) is not None:
