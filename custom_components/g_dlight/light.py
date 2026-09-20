@@ -44,7 +44,7 @@ class GoogleDlightLight(LightEntity):
         self._attr_unique_id = client.device_id
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, client.device_id)},
-            name="Google Dlight",
+            name=f"Google Dlight ({client.device_id})",
             manufacturer="Google",
             model="Dlight",
         )

@@ -8,6 +8,7 @@
             "invalid_auth": "Invalid authentication",
             "unknown": "Unexpected error"
         },
+        "flow_title": "Google Dlight {device_id}",
         "step": {
             "discovery_confirm": {
                 "description": "Do you want to add Google Dlight device {device_id}?"

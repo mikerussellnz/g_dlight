@@ -1,5 +1,6 @@
 {
   "config": {
+    "flow_title": "Google Dlight {device_id}",
     "step": {
       "user": {
         "data": {
