@@ -64,7 +64,7 @@ class ConfigFlow(ConfigFlow, domain=DOMAIN):
         self._abort_if_unique_id_configured()
         self._discovered_device_id = device_id
         self._discovered_service_name = discovery_info.name
-        self.context["title_placeholders"] = {"device_id": f"{{{device_id}}}"}
+        self.context["title_placeholders"] = {"device_id": device_id}
         return await self.async_step_discovery_confirm()
 
     async def async_step_discovery_confirm(
@@ -84,6 +84,6 @@ class ConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="discovery_confirm",
             description_placeholders={
-                "device_id": f"{{{self._discovered_device_id or 'unknown'}}}",
+                "device_id": self._discovered_device_id or "unknown",
             },
         )
