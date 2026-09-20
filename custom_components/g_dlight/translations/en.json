@@ -9,6 +9,9 @@
             "unknown": "Unexpected error"
         },
         "step": {
+            "discovery_confirm": {
+                "description": "Do you want to add Google Dlight device {device_id}?"
+            },
             "user": {
                 "data": {
                     "device_code": "Device code"
