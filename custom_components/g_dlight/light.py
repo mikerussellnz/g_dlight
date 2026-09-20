@@ -10,9 +10,11 @@ from homeassistant.components.light import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .api import DlightClient
+from .const import DOMAIN
 
 
 async def async_setup_entry(
@@ -37,7 +39,12 @@ class GoogleDlightLight(LightEntity):
         """Initialize the light."""
         self._client = client
         self._attr_unique_id = client.device_id
-        self._attr_device_code = client.device_id
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, client.device_id)},
+            name="Google Dlight",
+            manufacturer="Google",
+            model="Dlight",
+        )
         self._attr_is_on = False
         self._attr_brightness = 255
         self._attr_color_temp_kelvin = 4000
